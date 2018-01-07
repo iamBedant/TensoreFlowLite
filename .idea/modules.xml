@@ -4,6 +4,7 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/TensoreflowLite.iml" filepath="$PROJECT_DIR$/TensoreflowLite.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tf_lite_module/tf_lite_module.iml" filepath="$PROJECT_DIR$/tf_lite_module/tf_lite_module.iml" />
     </modules>
   </component>
 </project>
