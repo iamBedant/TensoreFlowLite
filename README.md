@@ -4,4 +4,4 @@ TensorFlow Lite Experiment
 ## Screenshot
 
 ## Example
-<img src="sc/s1.png" alt="Example 1" >&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <br />
+<img src="sc/s1.png" alt="Example 1" style="width: 200px;" >&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <br />
