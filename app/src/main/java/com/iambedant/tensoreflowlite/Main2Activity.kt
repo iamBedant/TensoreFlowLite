@@ -67,7 +67,7 @@ class Main2Activity : AppCompatActivity() {
                     .setImageDimention(DIM_IMG_SIZE)
                     .build()
         } catch (e: IOException) {
-            Timber.e("Failed to initialize image classifier")
+            Timber.e("Could not initialise Tfliteclassifier")
         }
 
     }
@@ -99,7 +99,7 @@ class Main2Activity : AppCompatActivity() {
                 imageReader = null
             }
         } catch (e: InterruptedException) {
-            throw RuntimeException("Interrupted while trying to lock camera closing.", e)
+            throw RuntimeException("camera closing error: ", e)
         } finally {
             cameraOpenCloseLock.release()
         }
@@ -128,21 +128,23 @@ class Main2Activity : AppCompatActivity() {
 
     private fun classifyFrame() {
         if (imageClassifier == null || this == null || cameraDevice == null) {
-            "Uninitialized Classifier or invalid context.".toast(this)
+            "Uninitialized classifier or camera".toast(this)
             return
         }
         val bitmap = textureView.getBitmap(DIM_IMG_SIZE, DIM_IMG_SIZE)
 
         val textToShow: List<Predictions>? = (imageClassifier?.classifyFrameToList(bitmap))?.reversed()
 
-
+        /**
+         * I know this is really bad way, I am focusing on TF part not UI.
+         */
         this.runOnUiThread({
             tvPredOne.text = textToShow?.get(0)?.thing
-            tvPredOnePer.text = textToShow?.get(0)?.probability
+            tvPredOnePer.text = textToShow?.get(0)?.probability+"%"
             tvPredTwo.text = textToShow?.get(1)?.thing
-            tvPredTwoPer.text = textToShow?.get(1)?.probability
+            tvPredTwoPer.text = textToShow?.get(1)?.probability +"%"
             tvPredThree.text = textToShow?.get(2)?.thing
-            tvPredThreePer.text = textToShow?.get(2)?.probability
+            tvPredThreePer.text = textToShow?.get(2)?.probability+"%"
         })
 
 
@@ -179,13 +181,13 @@ class Main2Activity : AppCompatActivity() {
 
         try {
             if (!cameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
-                throw RuntimeException("Time out waiting to lock camera opening.")
+                throw RuntimeException("Time out")
             }
             manager.openCamera(cameraId, stateCallback, backgroundHandler)
         } catch (e: CameraAccessException) {
             e.printStackTrace()
         } catch (e: InterruptedException) {
-            throw RuntimeException("Interrupted while trying to lock camera opening.", e)
+            throw RuntimeException("Camera opening error", e)
         }
 
     }
