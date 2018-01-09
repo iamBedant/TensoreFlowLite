@@ -1,6 +1,7 @@
 package com.iambedant.tf_lite_module;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.os.SystemClock;
@@ -24,33 +25,36 @@ import java.util.Map;
 import java.util.PriorityQueue;
 
 /**
- * Created by @iamBedant on 07/01/18.
+ * Created by @iamBedant on 09/01/18.
  */
 
-public class TfClassifier {
+public class TfLiteClassifier {
 
-    public static final int DIM_IMG_SIZE_X = 224;
-    public static final int DIM_IMG_SIZE_Y = 224;
-    private static final String TAG = "ImageClassifier";
+    public static int DIM_IMG_SIZE_X;
+    public static int DIM_IMG_SIZE_Y;
+
+    private static String TAG;
     /**
      * Name of the model file stored in Assets.
      */
-    private static final String MODEL_PATH = "mobilenet_quant_v1_224.tflite";
+    private static String MODEL_PATH;
+
     /**
      * Name of the label file stored in Assets.
      */
-    private static final String LABEL_PATH = "labels.txt";
+    private static String LABEL_PATH = "labels.txt";
+
     /**
      * Number of results to show in the UI.
      */
-    private static final int RESULTS_TO_SHOW = 3;
+    private static int RESULTS_TO_SHOW;
     /**
      * Dimensions of inputs.
      */
-    private static final int DIM_BATCH_SIZE = 1;
-    private static final int DIM_PIXEL_SIZE = 3;
+    private static int DIM_BATCH_SIZE = 1;
+    private static int DIM_PIXEL_SIZE;
     /* Preallocated buffers for storing image data in. */
-    private int[] intValues = new int[DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y];
+    private int[] intValues ;
 
     /**
      * An instance of the driver class to run model inference with Tensorflow Lite.
@@ -72,20 +76,33 @@ public class TfClassifier {
      */
     private byte[][] labelProbArray = null;
 
-    private PriorityQueue<Map.Entry<String, Float>> sortedLabels =
-            new PriorityQueue<>(
-                    RESULTS_TO_SHOW,
-                    new Comparator<Map.Entry<String, Float>>() {
-                        @Override
-                        public int compare(Map.Entry<String, Float> o1, Map.Entry<String, Float> o2) {
-                            return (o1.getValue()).compareTo(o2.getValue());
-                        }
-                    });
+    private PriorityQueue<Map.Entry<String, Float>> sortedLabels;
 
-    /**
-     * Initializes an {@code ImageClassifier}.
-     */
-    public TfClassifier(Activity activity) throws IOException {
+
+    public TfLiteClassifier(TfLiteClassifierBuilder builder) {
+        this.DIM_IMG_SIZE_X = builder.DIM_IMG_SIZE_X;
+        this.DIM_IMG_SIZE_Y = builder.DIM_IMG_SIZE_Y;
+        this.MODEL_PATH = builder.MODEL_PATH;
+        this.LABEL_PATH = builder.LABEL_PATH;
+        this.RESULTS_TO_SHOW = builder.RESULTS_TO_SHOW;
+        this.DIM_PIXEL_SIZE = builder.DIM_PIXEL_SIZE;
+        try {
+            initialiseData(builder.context);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void initialiseData(Activity activity) throws IOException {
+        intValues = new int[DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y];
+        sortedLabels = new PriorityQueue<>(
+                RESULTS_TO_SHOW,
+                new Comparator<Map.Entry<String, Float>>() {
+                    @Override
+                    public int compare(Map.Entry<String, Float> o1, Map.Entry<String, Float> o2) {
+                        return (o1.getValue()).compareTo(o2.getValue());
+                    }
+                });
         tflite = new Interpreter(loadModelFile(activity));
         labelList = loadLabelList(activity);
         imgData =
@@ -93,44 +110,9 @@ public class TfClassifier {
                         DIM_BATCH_SIZE * DIM_IMG_SIZE_X * DIM_IMG_SIZE_Y * DIM_PIXEL_SIZE);
         imgData.order(ByteOrder.nativeOrder());
         labelProbArray = new byte[1][labelList.size()];
-        Log.d(TAG, "Created a Tensorflow Lite Image Classifier.");
-    }
-
-    /**
-     * Classifies a frame from the preview stream.
-     */
-    String classifyFrame(Bitmap bitmap) {
-        if (tflite == null) {
-            Log.e(TAG, "Image classifier has not been initialized; Skipped.");
-            return "Uninitialized Classifier.";
-        }
-        convertBitmapToByteBuffer(bitmap);
-        // Here's where the magic happens!!!
-        long startTime = SystemClock.uptimeMillis();
-        tflite.run(imgData, labelProbArray);
-
-        long endTime = SystemClock.uptimeMillis();
-        Log.d(TAG, "Timecost to run model inference: " + Long.toString(endTime - startTime));
-        String textToShow = printTopKLabels();
-        textToShow = Long.toString(endTime - startTime) + "ms" + textToShow;
-        return textToShow;
-    }
 
 
-    public List<Predictions> classifyFrameToList(Bitmap bitmap) {
-        if (tflite == null) {
-            Log.e(TAG, "Image classifier has not been initialized; Skipped.");
-            return new ArrayList<>();
-        }
-        convertBitmapToByteBuffer(bitmap);
-        // Here's where the magic happens!!!
-        long startTime = SystemClock.uptimeMillis();
-        tflite.run(imgData, labelProbArray);
-        long endTime = SystemClock.uptimeMillis();
 
-
-        Log.d(TAG, "Timecost to run model inference: " + Long.toString(endTime - startTime));
-        return returnTopKLabels();
     }
 
     /**
@@ -147,6 +129,7 @@ public class TfClassifier {
         reader.close();
         return labelList;
     }
+
 
     /**
      * Memory-map the model file in Assets.
@@ -184,30 +167,26 @@ public class TfClassifier {
         Log.d(TAG, "Timecost to put values into ByteBuffer: " + Long.toString(endTime - startTime));
     }
 
+    public List<Predictions> classifyFrameToList(Bitmap bitmap) {
+        if (tflite == null) {
+            Log.e(TAG, "Image classifier has not been initialized; Skipped.");
+            return new ArrayList<>();
+        }
+        convertBitmapToByteBuffer(bitmap);
+        // Here's where the magic happens!!!
+        long startTime = SystemClock.uptimeMillis();
+        tflite.run(imgData, labelProbArray);
+        long endTime = SystemClock.uptimeMillis();
 
-    /**
-     * Prints top-K labels, to be shown in UI as the results.
-     */
-    private String printTopKLabels() {
-        for (int i = 0; i < labelList.size(); ++i) {
-            sortedLabels.add(
-                    new AbstractMap.SimpleEntry<>(labelList.get(i), (labelProbArray[0][i] & 0xff) / 255.0f));
-            if (sortedLabels.size() > RESULTS_TO_SHOW) {
-                sortedLabels.poll();
-            }
-        }
-        String textToShow = "";
-        final int size = sortedLabels.size();
-        for (int i = 0; i < size; ++i) {
-            Map.Entry<String, Float> label = sortedLabels.poll();
-            textToShow = "\n" + label.getKey() + ":" + Float.toString(label.getValue()) + textToShow;
-        }
-        return textToShow;
+
+        Log.d(TAG, "Timecost to run model inference: " + Long.toString(endTime - startTime));
+        return returnTopKLabels();
     }
+
 
     private List<Predictions> returnTopKLabels() {
 
-        List<Predictions> list= new ArrayList<>();
+        List<Predictions> list = new ArrayList<>();
 
 
         for (int i = 0; i < labelList.size(); ++i) {
@@ -220,7 +199,7 @@ public class TfClassifier {
         final int size = sortedLabels.size();
         for (int i = 0; i < size; ++i) {
             Map.Entry<String, Float> label = sortedLabels.poll();
-            list.add(new Predictions(label.getKey() ,String.format ("%.1f", label.getValue()*100)));
+            list.add(new Predictions(label.getKey(), String.format("%.1f", label.getValue() * 100)));
         }
         return list;
     }
@@ -228,5 +207,51 @@ public class TfClassifier {
     public void close() {
         tflite.close();
         tflite = null;
+    }
+
+    public static class TfLiteClassifierBuilder {
+        public int DIM_IMG_SIZE_X = 224;
+        public int DIM_IMG_SIZE_Y = 224;
+
+        private String MODEL_PATH;
+        private String LABEL_PATH;
+        private int RESULTS_TO_SHOW = 3;
+        private int DIM_PIXEL_SIZE = 3;
+        private Activity context;
+
+        public TfLiteClassifierBuilder(Activity context) {
+            this.context = context;
+        }
+
+        public TfLiteClassifierBuilder setImageDimention(int dimention) {
+            this.DIM_IMG_SIZE_X = dimention;
+            this.DIM_IMG_SIZE_Y = dimention;
+            return this;
+        }
+
+        public TfLiteClassifierBuilder setModelPath(String modelPath) {
+            this.MODEL_PATH = modelPath;
+            return this;
+        }
+
+        public TfLiteClassifierBuilder setLabelPath(String labelPath) {
+            this.LABEL_PATH = labelPath;
+            return this;
+        }
+
+        public TfLiteClassifierBuilder setResultToshow(int resultCount) {
+            this.RESULTS_TO_SHOW = resultCount;
+            return this;
+        }
+
+        public TfLiteClassifierBuilder setColorChannel(int channel) {
+            this.DIM_PIXEL_SIZE = channel;
+            return this;
+        }
+
+        public TfLiteClassifier build() {
+            return new TfLiteClassifier(this);
+        }
+
     }
 }

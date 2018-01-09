@@ -16,7 +16,7 @@ import android.util.Size
 import android.view.Surface
 import android.view.TextureView
 import com.iambedant.tf_lite_module.Predictions
-import com.iambedant.tf_lite_module.TfClassifier
+import com.iambedant.tf_lite_module.TfLiteClassifier
 import kotlinx.android.synthetic.main.activity_main2.*
 import timber.log.Timber
 import java.io.IOException
@@ -26,8 +26,8 @@ import java.util.concurrent.TimeUnit
 
 class Main2Activity : AppCompatActivity() {
 
-
-    private var imageClassifier: TfClassifier? = null
+    private var DIM_IMG_SIZE= 224
+    private var imageClassifier: TfLiteClassifier? = null
     private var backgroundThread: HandlerThread? = null
     private var backgroundHandler: Handler? = null
     private var runClassifier = false
@@ -61,7 +61,11 @@ class Main2Activity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main2)
         try {
-            imageClassifier = TfClassifier(this)
+            imageClassifier = TfLiteClassifier.TfLiteClassifierBuilder(this)
+                    .setLabelPath("labels.txt")
+                    .setModelPath("mobilenet_quant_v1_224.tflite")
+                    .setImageDimention(DIM_IMG_SIZE)
+                    .build()
         } catch (e: IOException) {
             Timber.e("Failed to initialize image classifier")
         }
@@ -127,7 +131,7 @@ class Main2Activity : AppCompatActivity() {
             "Uninitialized Classifier or invalid context.".toast(this)
             return
         }
-        val bitmap = textureView.getBitmap(TfClassifier.DIM_IMG_SIZE_X, TfClassifier.DIM_IMG_SIZE_Y)
+        val bitmap = textureView.getBitmap(DIM_IMG_SIZE, DIM_IMG_SIZE)
 
         val textToShow: List<Predictions>? = (imageClassifier?.classifyFrameToList(bitmap))?.reversed()
 
@@ -170,7 +174,6 @@ class Main2Activity : AppCompatActivity() {
         }
 
         setUpCameraOutputs(width, height)
-        configureTransform(width, height)
         val activity = this
         val manager = activity.getSystemService(Context.CAMERA_SERVICE) as CameraManager
 
@@ -216,7 +219,6 @@ class Main2Activity : AppCompatActivity() {
         }
 
         override fun onSurfaceTextureSizeChanged(surfaceTexture: SurfaceTexture, width: Int, height: Int) {
-            configureTransform(width, height)
         }
 
         override fun onSurfaceTextureDestroyed(surfaceTexture: SurfaceTexture): Boolean {
@@ -226,31 +228,6 @@ class Main2Activity : AppCompatActivity() {
         override fun onSurfaceTextureUpdated(surfaceTexture: SurfaceTexture) {
 
         }
-    }
-
-    private fun configureTransform(viewWidth: Int, viewHeight: Int) {
-//        val activity = this
-//        if (null == textureView || null == previewSize || null == activity) {
-//            return
-//        }
-//        val rotation = activity!!.getWindowManager().getDefaultDisplay().getRotation()
-//        val matrix = Matrix()
-//        val viewRect = RectF(0f, 0f, viewWidth.toFloat(), viewHeight.toFloat())
-//        val bufferRect = RectF(0f, 0f, previewSize?.getHeight()!!.toFloat(), previewSize?.getWidth()!!.toFloat())
-//        val centerX = viewRect.centerX()
-//        val centerY = viewRect.centerY()
-//        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
-//            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY())
-//            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL)
-//            val scale = Math.max(
-//                    viewHeight.toFloat() / previewSize!!.getHeight(),
-//                    viewWidth.toFloat() / previewSize!!.getWidth())
-//            matrix.postScale(scale, scale, centerX, centerY)
-//            matrix.postRotate((90 * (rotation - 2)).toFloat(), centerX, centerY)
-//        } else if (Surface.ROTATION_180 == rotation) {
-//            matrix.postRotate(180f, centerX, centerY)
-//        }
-//        textureView.setTransform(matrix)
     }
 
     private fun allPermissionsGranted(): Boolean {
@@ -351,9 +328,9 @@ class Main2Activity : AppCompatActivity() {
                 // We fit the aspect ratio of TextureView to the size of preview we picked.
                 val orientation = resources.configuration.orientation
                 if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                    textureView.setAspectRatio(previewSize!!.getWidth(), previewSize!!.getHeight())
+                    textureView.setAspectRatio(previewSize!!.width, previewSize!!.height)
                 } else {
-                    textureView.setAspectRatio(previewSize!!.getHeight(), previewSize!!.getWidth())
+                    textureView.setAspectRatio(previewSize!!.height, previewSize!!.width)
                 }
 
                 this.cameraId = cameraId
